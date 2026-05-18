@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# ralph — reusable unattended "Ralph Wiggum loop" over the `pi` agent harness.
+#
+#   ralph <target-project-dir>
+#
+# Drives PLAN -> IMPLEMENT -> VALIDATE phases (each an isolated, capped pi
+# session) until .ralph/BACKLOG.md drains and VALIDATE emits <goal-complete/>.
+# State lives in <target>/.ralph/; safe to Ctrl-C and re-run to resume.
+set -euo pipefail
+
+RALPH_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export RALPH_HOME
+# shellcheck source=../lib/common.sh
+source "$RALPH_HOME/lib/common.sh"
+source "$RALPH_HOME/lib/state.sh"
+source "$RALPH_HOME/lib/pi.sh"
+source "$RALPH_HOME/lib/safety.sh"
+source "$RALPH_HOME/lib/phase.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: ralph <target-project-dir>
+
+First run scaffolds <target>/.ralph/ and writes a GOAL.md template — fill it
+in, then re-run. See docs/README.md for the env-var surface and safety model.
+EOF
+}
+
+[ $# -eq 1 ] || { usage; exit 64; }
+case "$1" in -h|--help) usage; exit 0;; esac
+
+# --- preflight ---
+need jq; need awk; need comm; need shasum; need sed
+[ -x "$RALPH_PI_BIN" ] || command -v "$RALPH_PI_BIN" >/dev/null 2>&1 \
+  || die "pi not executable at RALPH_PI_BIN=$RALPH_PI_BIN"
+[ -d "$1" ] || die "target is not a directory: $1"
+RALPH_TARGET="$(cd "$1" && pwd)"; export RALPH_TARGET
+RDIR="$RALPH_TARGET/.ralph"
+
+# --- bootstrap target .ralph/ ---
+mkdir -p "$RDIR"/{sessions,logs}
+[ -f "$RDIR/GOAL.md" ]       || cp "$RALPH_HOME/templates/GOAL.md" "$RDIR/GOAL.md"
+[ -f "$RDIR/BACKLOG.md" ]    || cp "$RALPH_HOME/templates/BACKLOG.md" "$RDIR/BACKLOG.md"
+[ -f "$RDIR/PLAN.md" ]       || : > "$RDIR/PLAN.md"
+[ -f "$RDIR/VALIDATION.md" ] || : > "$RDIR/VALIDATION.md"
+[ -f "$RDIR/JOURNAL.md" ]    || : > "$RDIR/JOURNAL.md"
+# keep harness bookkeeping out of the target's own VCS
+if [ -d "$RALPH_TARGET/.git" ] && ! grep -qxF '.ralph/' "$RALPH_TARGET/.gitignore" 2>/dev/null; then
+  echo '.ralph/' >> "$RALPH_TARGET/.gitignore"
+fi
+
+# GOAL.md must have real (non-comment, non-blank) content
+if ! grep -qvE '^\s*(<!--.*|$)' "$RDIR/GOAL.md"; then
+  die "edit $RDIR/GOAL.md with your objective, then re-run."
+fi
+
+state_init
+
+phase="$(state_get '.phase')"
+case "$phase" in
+  COMPLETE)    log "already COMPLETE — nothing to do (reset STATE.json to rerun)"; exit 0;;
+  HALTED_*)    die "state is $phase — resolve and reset: clear $RDIR/STOP, bump RALPH_MAX_ITERATIONS, or delete $RDIR/STATE.json";;
+esac
+
+log "ralph start: target=$RALPH_TARGET resume-phase=$phase model=${RALPH_MODEL:-<ambient>}/${RALPH_PROVIDER:-<ambient>} window=$RALPH_CONTEXT_WINDOW"
+journal "RUN start (resume phase=$phase, max_turns=$RALPH_MAX_TURNS, ctx_pct=$RALPH_CONTEXT_PCT, window=$RALPH_CONTEXT_WINDOW)"
+
+backlog_drained() { ! grep -qE '^[[:space:]]*- \[ \]' "$RDIR/BACKLOG.md"; }
+
+# --- outer state machine ---
+while true; do
+  safety_check_stop
+  iter="$(state_get '.iteration')"
+  iter=$((iter + 1))
+  safety_check_maxiter "$iter"
+  state_update ".iteration=$iter"
+  phase="$(state_get '.phase')"
+
+  case "$phase" in
+    PLAN)
+      run_phase plan
+      next="IMPLEMENT"
+      ;;
+    IMPLEMENT)
+      run_phase implement
+      next="VALIDATE"
+      ;;
+    VALIDATE)
+      run_phase validate
+      safety_check_stuck   # halts on 3 identical consecutive VALIDATION.md
+      if [ "${RALPH_SAW_GOAL_DONE:-0}" -eq 1 ] && backlog_drained; then
+        state_update '.goal_complete=true | .phase="COMPLETE"'
+        journal "COMPLETE iter=$iter (backlog drained + <goal-complete/> verified)"
+        log "GOAL COMPLETE after $iter iterations"
+        exit 0
+      fi
+      if backlog_drained; then
+        next="PLAN"      # goal unmet but backlog empty -> re-plan
+        log "backlog drained, goal unmet -> re-PLAN"
+      else
+        next="IMPLEMENT"  # more items remain
+      fi
+      ;;
+    *) die "unexpected phase in loop: $phase";;
+  esac
+
+  state_update ".phase=\"$next\""
+  journal "iter=$iter $phase -> $next (exit=${RALPH_PHASE_EXIT:-?}, turns=$(state_get '.last_turns_used'), ctx=$(state_get '.last_ctx_fraction'))"
+done

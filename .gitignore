@@ -1,0 +1,6 @@
+# ralph-loop carries no runtime state — per-target state lives in
+# <target>/.ralph/, never in this repo. Only ignore local/editor cruft.
+.DS_Store
+*.swp
+*~
+/tmp/
