@@ -44,6 +44,19 @@ By default the harness uses whatever model `pi` is already configured for —
 typically a **local model** (e.g. LM Studio / Ollama). No API keys or model
 flags are needed for the default local path.
 
+## Install (optional)
+
+Run `ralph` from anywhere by symlinking it onto your PATH (the script
+resolves through symlinks to find its own files):
+
+```bash
+ln -sfn "$PWD/bin/ralph" /opt/homebrew/bin/ralph   # user-writable, on PATH
+# or, for /usr/local/bin (root-owned, needs sudo):
+sudo ln -sfn "$PWD/bin/ralph" /usr/local/bin/ralph
+```
+
+Otherwise just invoke `bin/ralph` from the repo, or by absolute path.
+
 ## Quickstart
 
 Default path — local model, no API keys, no model flags:

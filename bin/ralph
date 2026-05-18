@@ -8,8 +8,17 @@
 # State lives in <target>/.ralph/; safe to Ctrl-C and re-run to resume.
 set -euo pipefail
 
-RALPH_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve through symlinks so `ralph` works when symlinked onto PATH
+# (e.g. /usr/local/bin/ralph -> repo/bin/ralph). Portable, bash 3.2-safe.
+_src="${BASH_SOURCE[0]}"
+while [ -h "$_src" ]; do
+  _dir="$(cd -P "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  case "$_src" in /*) ;; *) _src="$_dir/$_src" ;; esac
+done
+RALPH_HOME="$(cd -P "$(dirname "$_src")/.." && pwd)"
 export RALPH_HOME
+unset _src _dir
 # shellcheck source=../lib/common.sh
 source "$RALPH_HOME/lib/common.sh"
 source "$RALPH_HOME/lib/state.sh"
