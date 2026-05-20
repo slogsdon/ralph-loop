@@ -8,6 +8,7 @@
 : "${RALPH_MAX_ITERATIONS:=50}"      # global outer-loop cap
 : "${RALPH_PI_BIN:=/opt/homebrew/bin/pi}"
 : "${RALPH_RETRY_TRANSIENT:=1}"      # transient pi-error retries before counting
+: "${RALPH_JOURNAL_EXCERPT_LEN:=250}"  # chars of assistant text per turn logged to JOURNAL.md; 0 = off
 # RALPH_MODEL / RALPH_PROVIDER: unset by default. Strongly recommended for
 # unattended runs — pi's effective model is otherwise ambient and the context
 # cap becomes meaningless if RALPH_CONTEXT_WINDOW does not match the real model.

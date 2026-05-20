@@ -7,6 +7,15 @@
 #
 # Sets globals: RALPH_PHASE_EXIT (DONE|TURN_CAP|CTX_CAP), RALPH_SAW_GOAL_DONE.
 
+_journal_llm_excerpt() {
+  local phase="$1" turn="$2" txt="$3"
+  [ "${RALPH_JOURNAL_EXCERPT_LEN:-250}" -gt 0 ] || return 0
+  [ -n "$txt" ] || return 0
+  local excerpt
+  excerpt="$(printf '%s' "$txt" | head -c "${RALPH_JOURNAL_EXCERPT_LEN:-250}" | tr '\n' ' ')"
+  journal "phase=$phase turn=$turn llm: ${excerpt}"
+}
+
 # float ">=" via awk; returns 0 (true) when a >= b.
 _fge() { awk -v a="$1" -v b="$2" 'BEGIN{exit !(a>=b)}'; }
 
@@ -79,6 +88,7 @@ run_phase() {
     safety_note_pi_ok
 
     local txt; txt="$(pi_assistant_text "$out")"
+    _journal_llm_excerpt "$phase" "$turn" "$txt"
 
     if printf '%s' "$txt" | grep -qF "$RALPH_GOAL_DONE_SIGNAL"; then
       RALPH_SAW_GOAL_DONE=1; RALPH_PHASE_EXIT="DONE"
