@@ -29,14 +29,46 @@ source "$RALPH_HOME/lib/phase.sh"
 usage() {
   cat <<'EOF'
 Usage: ralph <target-project-dir>
+       ralph reset <target-project-dir> [--keep-goal]
 
 First run scaffolds <target>/.ralph/ and writes a GOAL.md template — fill it
 in, then re-run. See docs/README.md for the env-var surface and safety model.
+
+reset: clear harness state so the target can be used with a new goal.
+       --keep-goal preserves the existing GOAL.md (useful for retrying
+       the same goal after a bad run).
 EOF
 }
 
-[ $# -eq 1 ] || { usage; exit 64; }
+do_reset() {
+  local target="$1" keep_goal="${2:-0}"
+  [ -d "$target" ] || die "target is not a directory: $target"
+  RALPH_TARGET="$(cd "$target" && pwd)"; export RALPH_TARGET
+  local rdir="$RALPH_TARGET/.ralph"
+  [ -d "$rdir" ] || die "no .ralph/ found in $target — run ralph $target first to initialise"
+  rm -f "$rdir/STATE.json"
+  : > "$rdir/PLAN.md"
+  : > "$rdir/VALIDATION.md"
+  cp "$RALPH_HOME/templates/BACKLOG.md" "$rdir/BACKLOG.md"
+  rm -rf "$rdir/sessions"
+  mkdir -p "$rdir/sessions"
+  if [ "$keep_goal" -eq 0 ]; then
+    cp "$RALPH_HOME/templates/GOAL.md" "$rdir/GOAL.md"
+  fi
+  journal "RESET state cleared (keep_goal=$keep_goal)"
+  log "reset complete: $rdir"
+}
+
+[ $# -ge 1 ] || { usage; exit 64; }
 case "$1" in -h|--help) usage; exit 0;; esac
+
+if [ "$1" = "reset" ]; then
+  [ $# -ge 2 ] || { usage; exit 64; }
+  _keep_goal=0
+  [ "${3:-}" = "--keep-goal" ] && _keep_goal=1
+  do_reset "$2" "$_keep_goal"
+  exit 0
+fi
 
 # --- preflight ---
 need jq; need awk; need comm; need shasum; need sed
