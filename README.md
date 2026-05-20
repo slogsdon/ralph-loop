@@ -1,6 +1,6 @@
 # ralph
 
-Unattended agentic coding loop. Give it a project directory and a goal; it runs `PLAN → IMPLEMENT → VALIDATE` until the goal is provably met — no babysitting required.
+Unattended agentic coding loop. Point it at a project directory and a goal. It runs `PLAN → IMPLEMENT → VALIDATE` until the goal is verifiably complete.
 
 Built on [`pi`](https://pi.dev). State lives in `<target>/.ralph/` so you can Ctrl-C and resume any time.
 
@@ -36,7 +36,7 @@ ralph /path/to/my-project
 
 ### 2. Write your goal
 
-Open `.ralph/GOAL.md` and describe what you want built. The key is a **concrete acceptance command** — something VALIDATE can actually run.
+Open `.ralph/GOAL.md` and describe what you want built. The key is a **concrete acceptance command**, something VALIDATE can actually run.
 
 ```md
 Create add.py exposing add(a, b) returning a + b.
@@ -89,7 +89,7 @@ export RALPH_CONTEXT_WINDOW=32768   # match your local model
 ralph /path/to/my-project
 ```
 
-To use a cloud model instead:
+To use a cloud model:
 
 ```bash
 export RALPH_MODEL=claude-sonnet RALPH_PROVIDER=anthropic RALPH_CONTEXT_WINDOW=200000

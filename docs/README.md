@@ -1,18 +1,31 @@
 # ralph-loop
 
-A reusable, unattended **Ralph Wiggum loop** built on the [`pi`](https://pi.dev)
-agent harness. Point it at any project and a goal; it drives
-`PLAN → IMPLEMENT → VALIDATE` over shared filesystem state until the goal is
-verifiably complete, with no human in the loop.
+A reusable, unattended loop built on the [`pi`](https://pi.dev) agent harness.
+Point it at any project and a goal; it drives `PLAN → IMPLEMENT → VALIDATE`
+over shared filesystem state until the goal is verifiably complete, with no
+human in the loop.
 
-The overarching process is adapted from Shane's `Context/Development Workflow`
-note (snapshot in `workflow/DEVELOPMENT_WORKFLOW.md`), injected into every
-agent process as an appended system prompt.
+The development workflow is injected into every agent process as an appended
+system prompt (snapshot in `workflow/DEVELOPMENT_WORKFLOW.md`).
 
 ## Why this exists
 
-Tracks **OKR O3 KR2** — "ship and document 2+ agentic workflow automations,
-each with a 60-day written evaluation." See `docs/EVALUATION.md`.
+Most agentic coding loops break in a way that demands human attention before
+they can continue. Turn 8 stalls, the model loses the thread, and nobody's
+there to step in.
+
+This harness is built around that failure mode. Each phase runs in its own
+isolated `pi` session. State flows through files, not agent memory, so hitting
+a cap (turns or context) doesn't lose progress. The next phase just reads what
+the last one left behind. A STOP file halts cleanly at the next boundary.
+Three identical VALIDATE results in a row trip the stuck detector. The loop
+either reaches COMPLETE or lands in a named HALTED_* state with a reason you
+can act on.
+
+The PLAN/IMPLEMENT/VALIDATE structure means unvalidated work can't get through.
+Validation failure is the input to the next cycle, not a crash.
+
+See `docs/EVALUATION.md` for how the first 60 days are being tracked.
 
 ## How it works
 
