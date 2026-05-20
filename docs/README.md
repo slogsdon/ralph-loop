@@ -100,6 +100,19 @@ Any `HALTED_*` phase is a stop that needs attention (see Safety model).
 Per-turn raw `pi` output is under `.ralph/logs/<iter>-<phase>-<turn>.jsonl`
 for debugging.
 
+## Resetting for a new goal
+
+After a run completes or halts, reuse the same target directory for a new goal:
+
+```bash
+ralph reset /path/to/target-project             # wipes state + resets GOAL.md to template
+ralph reset /path/to/target-project --keep-goal # wipes state, keeps existing GOAL.md
+```
+
+`JOURNAL.md` and `logs/` are always preserved as audit history. `reset` requires
+`.ralph/` to exist (initialise with a regular `ralph` run first if needed).
+After a full reset, fill in `.ralph/GOAL.md` then re-run `ralph <target>` to start fresh.
+
 ## Configuration
 
 | Env var | Default | Meaning |
@@ -111,6 +124,7 @@ for debugging.
 | `RALPH_MODEL` / `RALPH_PROVIDER` | unset | unset = use `pi`'s ambient (local) model; set to pin a specific model |
 | `RALPH_PI_BIN` | `/opt/homebrew/bin/pi` | path to `pi` |
 | `RALPH_RETRY_TRANSIENT` | `1` | transient `pi`-error retries before counting |
+| `RALPH_JOURNAL_EXCERPT_LEN` | `250` | chars of assistant text appended to `JOURNAL.md` per turn; `0` disables |
 
 > **Set `RALPH_CONTEXT_WINDOW` to your model's real window.** The default
 > local path needs no model flags — `pi` uses its ambient model. But the
