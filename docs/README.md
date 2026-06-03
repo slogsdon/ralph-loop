@@ -149,6 +149,17 @@ After a full reset, fill in `.ralph/GOAL.md` then re-run `ralph <target>` to sta
 > both to match your planner and executor models. Override `RALPH_PLAN_MODEL` /
 > `RALPH_EXEC_MODEL` (and optionally `RALPH_PROVIDER`) to swap either model.
 
+> **Model vars take the name `pi` resolves, not the raw backend tag.**
+> `RALPH_PLAN_MODEL` / `RALPH_EXEC_MODEL` are forwarded verbatim to `pi
+> --model`. Behind a LiteLLM proxy that is the **alias** (`quality`, `code`,
+> `review`, `write`, …) — *not* the Ollama tag like `qwen2.5-coder:14b`. An
+> unknown name fails every turn with `Model "…" not found` and the run halts
+> `HALTED_PI_ERROR` after the consecutive-pi-error threshold. List valid names
+> with `pi --list-models`. The **executor must also be tool-capable**: a model
+> that prints tool calls as plain text rather than structured calls never
+> actually edits files, so the IMPLEMENT phase runs to its turn cap doing
+> nothing. Verify with a one-shot tool-calling request before relying on it.
+
 ## Safety model
 
 | Control | Trips when | Terminal state | Exit |

@@ -98,6 +98,8 @@ export RALPH_PROVIDER=ollama
 ralph /path/to/my-project
 ```
 
+> **Use the names `pi` knows, not raw model tags.** `RALPH_PLAN_MODEL` and `RALPH_EXEC_MODEL` are passed straight to `pi --model`. With a LiteLLM proxy that means the **alias** (e.g. `quality`, `code`, `review`, `write`), not the underlying Ollama tag (`qwen2.5-coder:14b`). A tag `pi` doesn't recognise fails every turn with `Model "…" not found` and halts the run as `HALTED_PI_ERROR`. Check what's available with `pi --list-models`. Also note the executor must support tool calls — a model that emits tool calls as plain text instead of structured calls will spin the IMPLEMENT phase to its turn cap doing nothing.
+
 ---
 
 ## Key config
