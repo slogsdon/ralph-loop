@@ -55,4 +55,14 @@ _journal_llm_excerpt "plan" "3" ""
   || fail "empty text should not produce a journal entry"
 pass "empty text produces no journal entry"
 
+# Test 5: a multibyte UTF-8 char sliced at the excerpt boundary must not crash
+# the helper (head -c can split a multibyte char; a UTF-8-locale tr would abort
+# on the partial byte and, under set -e, kill the whole loop).
+: > "$TMP/.ralph/JOURNAL.md"
+RALPH_JOURNAL_EXCERPT_LEN=4   # slices "caf<é>" mid-character (é = 0xC3 0xA9)
+_journal_llm_excerpt "implement" "5" "caf$(printf '\xc3\xa9') and emoji $(printf '\xf0\x9f\x98\x80')"
+grep -q "phase=implement turn=5 llm:" "$TMP/.ralph/JOURNAL.md" \
+  || fail "helper crashed or wrote nothing on mid-multibyte slice"
+pass "mid-multibyte slice does not crash the helper"
+
 echo "All tests passed."

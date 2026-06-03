@@ -12,7 +12,10 @@ _journal_llm_excerpt() {
   [ "${RALPH_JOURNAL_EXCERPT_LEN:-250}" -gt 0 ] || return 0
   [ -n "$txt" ] || return 0
   local excerpt
-  excerpt="$(printf '%s' "$txt" | head -c "${RALPH_JOURNAL_EXCERPT_LEN:-250}" | tr '\n' ' ')"
+  # LC_ALL=C: head -c may slice a multibyte UTF-8 char, and a UTF-8-locale tr
+  # aborts on the resulting illegal byte — under set -e that kills the loop.
+  # Byte-wise tr never errors on partial sequences.
+  excerpt="$(printf '%s' "$txt" | head -c "${RALPH_JOURNAL_EXCERPT_LEN:-250}" | LC_ALL=C tr '\n' ' ')"
   journal "phase=$phase turn=$turn llm: ${excerpt}"
 }
 
