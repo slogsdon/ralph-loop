@@ -103,8 +103,8 @@ case "$phase" in
   HALTED_*)    die "state is $phase — resolve and reset: clear $RDIR/STOP, bump RALPH_MAX_ITERATIONS, or delete $RDIR/STATE.json";;
 esac
 
-log "ralph start: target=$RALPH_TARGET resume-phase=$phase model=${RALPH_MODEL:-<ambient>}/${RALPH_PROVIDER:-<ambient>} window=$RALPH_CONTEXT_WINDOW"
-journal "RUN start (resume phase=$phase, max_turns=$RALPH_MAX_TURNS, ctx_pct=$RALPH_CONTEXT_PCT, window=$RALPH_CONTEXT_WINDOW)"
+log "ralph start: target=$RALPH_TARGET resume-phase=$phase provider=${RALPH_PROVIDER:-<ambient>} plan=$RALPH_PLAN_MODEL(win=$RALPH_PLAN_CONTEXT_WINDOW) exec=$RALPH_EXEC_MODEL(win=$RALPH_EXEC_CONTEXT_WINDOW)"
+journal "RUN start (resume phase=$phase, max_turns=$RALPH_MAX_TURNS, ctx_pct=$RALPH_CONTEXT_PCT, plan=$RALPH_PLAN_MODEL/$RALPH_PLAN_CONTEXT_WINDOW, exec=$RALPH_EXEC_MODEL/$RALPH_EXEC_CONTEXT_WINDOW)"
 
 backlog_drained() { ! grep -qE '^[[:space:]]*- \[ \]' "$RDIR/BACKLOG.md"; }
 

@@ -5,7 +5,7 @@
 # snapshot-diff *.jsonl in --session-dir before/after the first call, then
 # resume with --session <uuid>. Extended here with --mode json + usage parse.
 #
-# Globals expected: RALPH_PI_BIN, RALPH_HOME, RALPH_TARGET, RALPH_CONTEXT_WINDOW.
+# Globals expected: RALPH_PI_BIN, RALPH_HOME, RALPH_TARGET.
 # Sets: RALPH_SESSION_UUID.
 
 # Populate the global RALPH_PI_ARGS array for a phase: print flags + workflow
@@ -19,7 +19,7 @@ _pi_build_args() {
   )
   while IFS= read -r line; do
     [ -n "$line" ] && RALPH_PI_ARGS+=("$line")
-  done < <(ralph_model_args)
+  done < <(ralph_model_args "$phase")
 }
 
 # First turn of a phase: create the session, capture its UUID into
@@ -64,10 +64,12 @@ pi_ctx_input() {
     | tail -1
 }
 
-# Context fraction for this turn. Primary: parsed usage. Fallback: transcript
-# char estimate (chars/4) when no usable usage line. Echoes "<fraction> <mode>".
+# Context fraction for this turn against the phase's context window. Primary:
+# parsed usage. Fallback: transcript char estimate (chars/4) when no usable
+# usage line. Echoes "<fraction> <mode>".
+#   pi_ctx_fraction <out> <session_dir> <context_window>
 pi_ctx_fraction() {
-  local out="$1" sdir="$2" input mode="usage" chars
+  local out="$1" sdir="$2" win="$3" input mode="usage" chars
   input="$(pi_ctx_input "$out")"
   if [ -z "$input" ]; then
     mode="estimate"
@@ -75,7 +77,7 @@ pi_ctx_fraction() {
               "$sdir"/*.jsonl 2>/dev/null || echo 0)"
     input=$(( ${chars:-0} / 4 ))
   fi
-  awk -v i="${input:-0}" -v w="$RALPH_CONTEXT_WINDOW" -v m="$mode" \
+  awk -v i="${input:-0}" -v w="$win" -v m="$mode" \
       'BEGIN { f = (w>0) ? i/w : 1; printf "%.4f %s\n", f, m }'
 }
 

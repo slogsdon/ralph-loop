@@ -38,7 +38,7 @@ See `docs/EVALUATION.md` for how the first 60 days are being tracked.
   isolated, ephemeral `pi` session. `pi` is called up to `RALPH_MAX_TURNS`
   times (resuming the phase session each turn). The phase ends on its
   `<phase-done/>` signal, the turn cap, or when context reaches
-  `RALPH_CONTEXT_PCT` of `RALPH_CONTEXT_WINDOW` — whichever comes first.
+  `RALPH_CONTEXT_PCT` of the phase's context window — whichever comes first.
   `pi` has no native turn/context limit; both caps are enforced here.
 - **State between isolated processes** lives in `<target>/.ralph/` files, never
   in `pi` session memory — so hitting a cap is non-fatal: the next phase reads
@@ -84,18 +84,20 @@ bin/ralph /path/to/target-project          # or an absolute path from anywhere
 # 2. Edit the objective + acceptance criteria.
 $EDITOR /path/to/target-project/.ralph/GOAL.md
 
-# 3. Set the context window to your local model's window, then run.
-export RALPH_CONTEXT_WINDOW=32768          # match your local model
+# 3. The two-model defaults (planner=quality, executor=code) suit a standard
+#    local LiteLLM/Ollama setup. Override the windows if your models differ.
+export RALPH_PLAN_CONTEXT_WINDOW=131072    # PLAN + VALIDATE model window
+export RALPH_EXEC_CONTEXT_WINDOW=65536     # IMPLEMENT model window
 bin/ralph /path/to/target-project
 ```
 
 `bin/ralph -h` prints usage. Re-running resumes from `STATE.json`
 (`phase`/`iteration`); Ctrl-C any time and re-run to continue.
 
-Optional — pin a specific (e.g. cloud) model instead of the ambient default:
+Optional — swap the planner/executor models or pin a provider for both:
 
 ```bash
-export RALPH_MODEL=claude-sonnet RALPH_PROVIDER=anthropic RALPH_CONTEXT_WINDOW=200000
+export RALPH_PLAN_MODEL=quality RALPH_EXEC_MODEL=code RALPH_PROVIDER=ollama
 bin/ralph /path/to/target-project
 ```
 
@@ -132,20 +134,20 @@ After a full reset, fill in `.ralph/GOAL.md` then re-run `ralph <target>` to sta
 |---|---|---|
 | `RALPH_MAX_TURNS` | `30` | per-phase `pi` invocation cap |
 | `RALPH_CONTEXT_PCT` | `0.5` | phase ends when context fraction ≥ this |
-| `RALPH_CONTEXT_WINDOW` | `200000` | context window of the model `pi` actually uses — set this to your local model's window |
+| `RALPH_PLAN_MODEL` / `RALPH_EXEC_MODEL` | `quality` / `code` | planner (PLAN+VALIDATE) and executor (IMPLEMENT) models — LiteLLM aliases over Ollama (`quality` = qwen3.6:35b-mlx, `code` = qwen2.5-coder:14b) |
+| `RALPH_PLAN_CONTEXT_WINDOW` / `RALPH_EXEC_CONTEXT_WINDOW` | `131072` / `65536` | context window of each model `pi` actually uses — set to each model's real window |
 | `RALPH_MAX_ITERATIONS` | `50` | global outer-loop cap |
-| `RALPH_MODEL` / `RALPH_PROVIDER` | unset | unset = use `pi`'s ambient (local) model; set to pin a specific model |
+| `RALPH_PROVIDER` | unset | unset = use `pi`'s ambient provider; set to pin a provider for both models |
 | `RALPH_PI_BIN` | `/opt/homebrew/bin/pi` | path to `pi` |
 | `RALPH_RETRY_TRANSIENT` | `1` | transient `pi`-error retries before counting |
 | `RALPH_JOURNAL_EXCERPT_LEN` | `250` | chars of assistant text appended to `JOURNAL.md` per turn; `0` disables |
 
-> **Set `RALPH_CONTEXT_WINDOW` to your model's real window.** The default
-> local path needs no model flags — `pi` uses its ambient model. But the
-> context cap is only meaningful if `RALPH_CONTEXT_WINDOW` matches whatever
-> model `pi` actually runs. The `200000` default suits a Sonnet-class model
-> and will effectively disable the cap on a smaller local model (it never
-> trips), so set it explicitly (e.g. `32768`). Pin `RALPH_MODEL`/
-> `RALPH_PROVIDER` only when you need a model other than the ambient one.
+> **Set each context window to its model's real window.** The context cap is
+> only meaningful if `RALPH_PLAN_CONTEXT_WINDOW` / `RALPH_EXEC_CONTEXT_WINDOW`
+> match the windows of the models `pi` actually runs. A window larger than the
+> real one effectively disables the cap for that phase (it never trips), so set
+> both to match your planner and executor models. Override `RALPH_PLAN_MODEL` /
+> `RALPH_EXEC_MODEL` (and optionally `RALPH_PROVIDER`) to swap either model.
 
 ## Safety model
 
@@ -190,7 +192,7 @@ Acceptance (VALIDATE must run this and see it pass):
   python3 -c "import add; assert add.add(2,3)==5; assert add.add(-1,1)==0; print('OK')"
 exits 0 and prints OK. Only add.py is required. No packages.
 EOF
-export RALPH_CONTEXT_WINDOW=32768                   # your local model's window
+export RALPH_PLAN_CONTEXT_WINDOW=32768 RALPH_EXEC_CONTEXT_WINDOW=32768   # your models' windows
 bin/ralph /tmp/ralph-smoke
 
 jq -r .phase /tmp/ralph-smoke/.ralph/STATE.json     # -> COMPLETE
@@ -201,8 +203,8 @@ Cap/halt checks (each independent):
 
 ```bash
 RALPH_MAX_TURNS=2 bin/ralph /tmp/ralph-impossible        # phase exits TURN_CAP
-RALPH_CONTEXT_WINDOW=2000 RALPH_CONTEXT_PCT=0.5 \
-  bin/ralph /tmp/ralph-ctx                               # first turn -> CTX_CAP
+RALPH_PLAN_CONTEXT_WINDOW=2000 RALPH_CONTEXT_PCT=0.5 \
+  bin/ralph /tmp/ralph-ctx                               # first (PLAN) turn -> CTX_CAP
 touch /tmp/ralph-smoke/.ralph/STOP                       # -> HALTED_STOP, exit 0
 RALPH_PI_BIN=/usr/bin/false bin/ralph /tmp/ralph-smoke   # -> HALTED_PI_ERROR
 ```

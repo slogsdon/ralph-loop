@@ -82,17 +82,19 @@ jq -r .phase /path/to/my-project/.ralph/STATE.json
 
 ## Model selection
 
-By default ralph uses whatever model `pi` is already configured for (typically a local model via LM Studio or Ollama). Set your model's context window so the loop paces itself correctly:
+ralph runs a **two-model split**: a high-reasoning planner for the PLAN and VALIDATE phases, and a fast code model for IMPLEMENT. The defaults assume LiteLLM aliases over Ollama — `quality` = qwen3.6:35b-mlx, `code` = qwen2.5-coder:14b:
 
 ```bash
-export RALPH_CONTEXT_WINDOW=32768   # match your local model
+# the standard local setup needs no exports — these are the defaults
+export RALPH_PLAN_MODEL=quality RALPH_PLAN_CONTEXT_WINDOW=131072   # PLAN + VALIDATE
+export RALPH_EXEC_MODEL=code    RALPH_EXEC_CONTEXT_WINDOW=65536    # IMPLEMENT
 ralph /path/to/my-project
 ```
 
-To use a cloud model:
+Set each model's context window to match its real window so the loop paces itself correctly. `RALPH_PROVIDER` (optional) pins a provider for both models:
 
 ```bash
-export RALPH_MODEL=claude-sonnet RALPH_PROVIDER=anthropic RALPH_CONTEXT_WINDOW=200000
+export RALPH_PROVIDER=ollama
 ralph /path/to/my-project
 ```
 
@@ -102,9 +104,10 @@ ralph /path/to/my-project
 
 | Variable | Default | What it does |
 |---|---|---|
-| `RALPH_CONTEXT_WINDOW` | `200000` | **Set this to your model's window** |
+| `RALPH_PLAN_MODEL` / `RALPH_EXEC_MODEL` | `quality` / `code` | Planner (PLAN+VALIDATE) and executor (IMPLEMENT) models |
+| `RALPH_PLAN_CONTEXT_WINDOW` / `RALPH_EXEC_CONTEXT_WINDOW` | `131072` / `65536` | **Match each model's real window** |
 | `RALPH_MAX_TURNS` | `30` | Per-phase turn cap |
 | `RALPH_MAX_ITERATIONS` | `50` | Global outer-loop cap |
-| `RALPH_MODEL` / `RALPH_PROVIDER` | unset | Pin a specific model |
+| `RALPH_PROVIDER` | unset | Pin a provider for both models |
 
 Full reference: [`docs/README.md`](docs/README.md)

@@ -48,8 +48,9 @@ run_phase() {
   local sdir="$RALPH_TARGET/.ralph/sessions/$phase"
   local logdir="$RALPH_TARGET/.ralph/logs"
   local err="$logdir/pi.err"
-  local iter turn=0 uuid="" prompt out rc frac fmode
+  local iter turn=0 uuid="" prompt out rc frac fmode ctxwin
 
+  ctxwin="$(ralph_context_window "$phase")"
   iter="$(state_get '.iteration')"
   rm -rf "$sdir"; mkdir -p "$sdir" "$logdir"
   RALPH_PHASE_EXIT=""; RALPH_SAW_GOAL_DONE=0
@@ -102,7 +103,7 @@ run_phase() {
       return 0
     fi
 
-    read -r frac fmode < <(pi_ctx_fraction "$out" "$sdir")
+    read -r frac fmode < <(pi_ctx_fraction "$out" "$sdir" "$ctxwin")
     state_update ".last_ctx_fraction=${frac:-0}"
     if _fge "${frac:-0}" "$RALPH_CONTEXT_PCT"; then
       RALPH_PHASE_EXIT="CTX_CAP"
