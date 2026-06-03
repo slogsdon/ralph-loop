@@ -22,25 +22,37 @@ _pi_build_args() {
   done < <(ralph_model_args "$phase")
 }
 
+# Capture the UUID of the session pi just created: the newest-by-mtime *.jsonl
+# in $sdir that was NOT already present in the $before snapshot. Selecting by
+# mtime (not alphabetical `head -1`) matters because session filenames are
+# timestamp-prefixed — a stale/orphan session lingering in $sdir (e.g. left by
+# a force-killed prior run whose pi child kept writing) sorts earlier and would
+# shadow the real one, making the resume fail with "No session found". Echoes
+# the UUID, or nothing if no new session appeared (pi created none).
+#   _pi_capture_session_uuid <session_dir> <before_listing>
+_pi_capture_session_uuid() {
+  local sdir="$1" before="$2" after newfiles newf
+  after="$(ls "$sdir"/*.jsonl 2>/dev/null | sort || true)"
+  newfiles="$(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after") | grep -v '^$' || true)"
+  [ -n "$newfiles" ] || return 0
+  newf="$(printf '%s\n' "$newfiles" | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1 || true)"
+  [ -n "$newf" ] && basename "$newf" | sed 's/^[^_]*_//; s/\.jsonl$//'
+  return 0
+}
+
 # First turn of a phase: create the session, capture its UUID into
 # RALPH_SESSION_UUID. pi's exit code is stashed in RALPH_PI_RC; the function
 # itself always returns 0 so callers stay safe under `set -e`.
 #   pi_run_first <phase> <session_dir> <out> <err> <prompt>
 pi_run_first() {
   local phase="$1" sdir="$2" out="$3" err="$4" prompt="$5"
-  local before after newf
+  local before
   _pi_build_args "$phase"
   before="$(ls "$sdir"/*.jsonl 2>/dev/null | sort || true)"
   RALPH_PI_RC=0
   ( cd "$RALPH_TARGET" && "$RALPH_PI_BIN" "${RALPH_PI_ARGS[@]}" \
       --session-dir "$sdir" "$prompt" ) >"$out" 2>>"$err" || RALPH_PI_RC=$?
-  after="$(ls "$sdir"/*.jsonl 2>/dev/null | sort || true)"
-  newf="$(comm -13 <(echo "$before") <(echo "$after") | head -1 || true)"
-  if [ -n "$newf" ]; then
-    RALPH_SESSION_UUID="$(basename "$newf" | sed 's/^[^_]*_//; s/\.jsonl$//')"
-  else
-    RALPH_SESSION_UUID=""
-  fi
+  RALPH_SESSION_UUID="$(_pi_capture_session_uuid "$sdir" "$before")"
   return 0
 }
 
